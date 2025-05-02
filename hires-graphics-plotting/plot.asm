@@ -65,6 +65,12 @@ NUMANS    = $34       ; Answer for number operations (3 bytes)
 PIXELX    = $A0       ; Pixel plotting X coordinate (2 bytes)
 PIXELY    = $A2       ; Pixel plotting Y coordinate (1 byte)
 
+NUMBITS   = $A4       ; The number of bits (need to reload when it drops to zero)
+IMGBITS   = $A5       ; The last bits read from the image data
+
+IMAGEX    = $A6       ; Image left coordinate (2 bytes)
+IMAGEY    = $A8       ; Image top coordinate (1 byte)
+
 ; Program header for Cody Basic's loader (needs to be first)
 
 .WORD ADDR                      ; Starting address (just like KIM-1, Commodore, etc.)
@@ -117,7 +123,90 @@ MAIN        JSR CLEAR             ; Clear screen
             LDA #1
             JSR PLOTPIXEL
             
+            LDA #<40              ; Draw a sample image
+            STA IMAGEX
+            LDA #>40
+            STA IMAGEX+1
+            LDA #20
+            STA IMAGEY
+            JSR PLOTIMAGE
+            
+            LDA #<140             ; Draw a sample image
+            STA IMAGEX
+            LDA #>140
+            STA IMAGEX+1
+            LDA #40
+            STA IMAGEY
+            JSR PLOTIMAGE
+            
+            LDA #<250             ; Draw a sample image
+            STA IMAGEX
+            LDA #>250
+            STA IMAGEX+1
+            LDA #130
+            STA IMAGEY
+            JSR PLOTIMAGE
+            
 _DONE       BRA _DONE             ; Loop forever
+
+;
+; PLOTIMAGE
+;
+; Plots the sample image. The implementation is far from optimal (each pixel is
+; plotted separately) and only supports bitmaps up to 256x256.
+;
+; No error checking or bounds checking is performed.
+;
+PLOTIMAGE   LDA #<IMG_DATA        ; Use the image data as a source location
+            STA MEMSPTR
+            LDA #>IMG_DATA
+            STA MEMSPTR+1
+
+            LDA IMAGEY            ; Starting y-coordinate for drawing the image
+            STA PIXELY
+
+            STZ NUMBITS           ; No bits (yet)
+            
+            LDY #IMG_HEIGHT       ; Loop over each line in the image
+            
+_LOOPY      LDA IMAGEX            ; Starting x-coordinate for drawing the image
+            STA PIXELX
+            LDA IMAGEX+1
+            STA PIXELX+1
+            
+            LDX #IMG_WIDTH        ; Loop over each pixel in the line
+            
+_LOOPX      LDA NUMBITS
+            BNE _PLOT
+            
+            LDA #8                ; Load a new batch of 8 bits
+            STA NUMBITS
+            LDA (MEMSPTR)
+            STA IMGBITS
+            
+            INC MEMSPTR           ; Increment source position
+            BNE _PLOT
+            INC MEMSPTR+1
+            
+_PLOT       LDA IMGBITS           ; Plot the current pixel
+            AND #$80
+            JSR PLOTPIXEL
+            
+            ASL IMGBITS           ; Rotate the image bits right by one
+            DEC NUMBITS
+                        
+            INC PIXELX            ; Next X?
+            BNE _NEXTX
+            INC PIXELX+1
+            
+_NEXTX      DEX
+            BNE _LOOPX
+            
+            INC PIXELY            ; Next Y?
+            DEY
+            BNE _LOOPY
+
+            RTS
 
 ;
 ; PLOTPIXEL
@@ -355,6 +444,523 @@ _L2       ROR A
           PLA
           
           RTS
+
+IMG_WIDTH  = 64
+IMG_HEIGHT = 64
+
+IMG_DATA
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %01111111
+    .BYTE %11111111
+    .BYTE %10000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000011
+    .BYTE %11111111
+    .BYTE %11111111
+    .BYTE %11110000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00011111
+    .BYTE %11111111
+    .BYTE %11111111
+    .BYTE %11111110
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00111111
+    .BYTE %11100000
+    .BYTE %00000001
+    .BYTE %11111111
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %11111110
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00011111
+    .BYTE %11000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000001
+    .BYTE %11111000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000111
+    .BYTE %11100000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000111
+    .BYTE %11100000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000001
+    .BYTE %11111000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00001111
+    .BYTE %11000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %11111100
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00011111
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00111110
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00111110
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00011111
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %01111100
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00001111
+    .BYTE %10000000
+    .BYTE %00000000
+    .BYTE %01111000
+    .BYTE %00000000
+    .BYTE %00111110
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000111
+    .BYTE %10000000
+    .BYTE %00000000
+    .BYTE %11110000
+    .BYTE %00000000
+    .BYTE %11111111
+    .BYTE %10000000
+    .BYTE %00000000
+    .BYTE %00000011
+    .BYTE %11000000
+    .BYTE %00000001
+    .BYTE %11100000
+    .BYTE %00000001
+    .BYTE %11111111
+    .BYTE %11000000
+    .BYTE %00000000
+    .BYTE %00000001
+    .BYTE %11100000
+    .BYTE %00000001
+    .BYTE %11100000
+    .BYTE %00000011
+    .BYTE %11111111
+    .BYTE %11100000
+    .BYTE %01111110
+    .BYTE %00000001
+    .BYTE %11100000
+    .BYTE %00000011
+    .BYTE %11000000
+    .BYTE %00000011
+    .BYTE %11111111
+    .BYTE %11100000
+    .BYTE %11111111
+    .BYTE %00000000
+    .BYTE %11110000
+    .BYTE %00000011
+    .BYTE %11000000
+    .BYTE %00000111
+    .BYTE %11111111
+    .BYTE %11110001
+    .BYTE %11111111
+    .BYTE %10000000
+    .BYTE %11110000
+    .BYTE %00000111
+    .BYTE %10000000
+    .BYTE %00000111
+    .BYTE %11111111
+    .BYTE %11110011
+    .BYTE %11111111
+    .BYTE %11000000
+    .BYTE %01111000
+    .BYTE %00000111
+    .BYTE %10000000
+    .BYTE %00000111
+    .BYTE %11110000
+    .BYTE %11110111
+    .BYTE %11111111
+    .BYTE %11100000
+    .BYTE %01111000
+    .BYTE %00000111
+    .BYTE %00000000
+    .BYTE %00000111
+    .BYTE %11100000
+    .BYTE %01110111
+    .BYTE %11000111
+    .BYTE %11100000
+    .BYTE %00111000
+    .BYTE %00001111
+    .BYTE %00000000
+    .BYTE %00000111
+    .BYTE %11100000
+    .BYTE %01110111
+    .BYTE %10000011
+    .BYTE %11100000
+    .BYTE %00111100
+    .BYTE %00001111
+    .BYTE %00000000
+    .BYTE %00000111
+    .BYTE %11100000
+    .BYTE %01110111
+    .BYTE %10000011
+    .BYTE %11100000
+    .BYTE %00111100
+    .BYTE %00001110
+    .BYTE %00000000
+    .BYTE %00000011
+    .BYTE %11100000
+    .BYTE %01100111
+    .BYTE %10000011
+    .BYTE %11100000
+    .BYTE %00011100
+    .BYTE %00001110
+    .BYTE %00000000
+    .BYTE %00000011
+    .BYTE %11100000
+    .BYTE %01100111
+    .BYTE %11000111
+    .BYTE %11100000
+    .BYTE %00011100
+    .BYTE %00001110
+    .BYTE %00000000
+    .BYTE %00000001
+    .BYTE %11110000
+    .BYTE %11000111
+    .BYTE %11111111
+    .BYTE %11100000
+    .BYTE %00011100
+    .BYTE %00001110
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %11111111
+    .BYTE %10000011
+    .BYTE %11111111
+    .BYTE %11000000
+    .BYTE %00011100
+    .BYTE %00001110
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00111110
+    .BYTE %00000001
+    .BYTE %11111111
+    .BYTE %10000000
+    .BYTE %00011100
+    .BYTE %00001110
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %11111111
+    .BYTE %00000000
+    .BYTE %00011100
+    .BYTE %00001110
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %01111110
+    .BYTE %00000000
+    .BYTE %00011100
+    .BYTE %00001110
+    .BYTE %00000100
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00011100
+    .BYTE %00001110
+    .BYTE %00000100
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00011100
+    .BYTE %00001110
+    .BYTE %00000010
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00011100
+    .BYTE %00001110
+    .BYTE %00000001
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00011100
+    .BYTE %00001110
+    .BYTE %00000001
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00011100
+    .BYTE %00001111
+    .BYTE %00000000
+    .BYTE %10000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00111100
+    .BYTE %00001111
+    .BYTE %00000000
+    .BYTE %01000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00111100
+    .BYTE %00000111
+    .BYTE %00000000
+    .BYTE %00100000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00111000
+    .BYTE %00000111
+    .BYTE %10000000
+    .BYTE %00100000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %01111000
+    .BYTE %00000111
+    .BYTE %10000000
+    .BYTE %00011000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00100000
+    .BYTE %01111000
+    .BYTE %00000011
+    .BYTE %11000000
+    .BYTE %00000100
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %11000000
+    .BYTE %11110000
+    .BYTE %00000011
+    .BYTE %11000000
+    .BYTE %00000010
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000001
+    .BYTE %00000000
+    .BYTE %11110000
+    .BYTE %00000001
+    .BYTE %11100000
+    .BYTE %00000001
+    .BYTE %10000000
+    .BYTE %00000000
+    .BYTE %00000110
+    .BYTE %00000001
+    .BYTE %11100000
+    .BYTE %00000001
+    .BYTE %11100000
+    .BYTE %00000000
+    .BYTE %01100000
+    .BYTE %00000000
+    .BYTE %00111000
+    .BYTE %00000001
+    .BYTE %11100000
+    .BYTE %00000000
+    .BYTE %11110000
+    .BYTE %00000000
+    .BYTE %00011110
+    .BYTE %00000111
+    .BYTE %11000000
+    .BYTE %00000011
+    .BYTE %11000000
+    .BYTE %00000000
+    .BYTE %01111000
+    .BYTE %00000000
+    .BYTE %00000001
+    .BYTE %11111000
+    .BYTE %00000000
+    .BYTE %00000111
+    .BYTE %10000000
+    .BYTE %00000000
+    .BYTE %01111100
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00001111
+    .BYTE %10000000
+    .BYTE %00000000
+    .BYTE %00111110
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00011111
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00011111
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00111110
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00001111
+    .BYTE %11000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %11111100
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000111
+    .BYTE %11100000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000001
+    .BYTE %11111000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000001
+    .BYTE %11111000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000111
+    .BYTE %11100000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %11111110
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00011111
+    .BYTE %11000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00111111
+    .BYTE %11100000
+    .BYTE %00000001
+    .BYTE %11111111
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00011111
+    .BYTE %11111111
+    .BYTE %11111111
+    .BYTE %11111110
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000011
+    .BYTE %11111111
+    .BYTE %11111111
+    .BYTE %11110000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %01111111
+    .BYTE %11111111
+    .BYTE %10000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
+    .BYTE %00000000
 
 LAST                              ; End of the entire program
 
